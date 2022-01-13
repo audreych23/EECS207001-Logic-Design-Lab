@@ -18,7 +18,8 @@ module ClockDivisor(clk, clk1);
 endmodule
 
 /* clock divisor for the flickering */
-module ClockDivisorSlow (clk, slow_clk);
+module ClockDivisorSlow (reset, clk, slow_clk);
+    input reset;
     input clk;
     output slow_clk;
 
@@ -26,10 +27,11 @@ module ClockDivisorSlow (clk, slow_clk);
     wire [26:0] next_num;
 
     always @(posedge clk) begin
-      num <= next_num;
+        if(reset) num <= 27'd0;
+        else num <= next_num;
     end
 
     assign next_num = num + 1'b1;
-    assign slow_clk = num[24];
+    assign slow_clk = num[26];
 
 endmodule

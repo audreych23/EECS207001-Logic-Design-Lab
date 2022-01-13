@@ -3,12 +3,11 @@
 module GameLogic(
     input clk,
     input rst,
-    input left_button,
-    input up_button,
-    input right_button,
-    input down_button,
-    input center_button,
     input [255:0] passed_board,
+    input [9:0] MOUSE_X_POS,
+    input [9:0] MOUSE_Y_POS,
+    input MOUSE_LEFT,
+    input MOUSE_RIGHT,
     output reg[5:0] board_out_address,
     output reg[3:0] board_out_piece,
     output reg board_change_en_wire,
@@ -87,21 +86,223 @@ module GameLogic(
         end
     end
 
-    always @(*)begin
-        /* cursor movement */
-        if(left_button && cursor_address[2:0] != 3'b000)
-            next_cursor_address = cursor_address - 6'b000_001;
-        else if(right_button && cursor_address[2:0] != 3'b111)
-            next_cursor_address = cursor_address + 6'b000_001;
-        else if(up_button && cursor_address[5:3] != 3'b000)
-            next_cursor_address = cursor_address - 6'b001_000;
-        else if(down_button && cursor_address[5:3] != 3'b111)
-            next_cursor_address = cursor_address + 6'b001_000;
-        else next_cursor_address = cursor_address;
+    /* cursor movement */
+    always@(*) begin
+      if (MOUSE_X_POS <= 170) begin
+          if (MOUSE_Y_POS <=  90) begin
+              next_cursor_address = 6'b000_000;
+          end
+          else if (MOUSE_Y_POS <= 140) begin
+              next_cursor_address = 6'b001_000;
+          end
+          else if (MOUSE_Y_POS <= 190) begin
+              next_cursor_address = 6'b010_000;
+          end
+          else if (MOUSE_Y_POS <= 240) begin
+              next_cursor_address = 6'b011_000;
+          end
+          else if (MOUSE_Y_POS <= 290) begin
+              next_cursor_address = 6'b100_000;
+          end
+          else if (MOUSE_Y_POS <= 340) begin
+              next_cursor_address = 6'b101_000;
+          end
+          else if (MOUSE_Y_POS <= 390) begin
+              next_cursor_address = 6'b110_000;
+          end
+          else begin
+              next_cursor_address = 6'b111_000;
+          end
+      end
+      else if(MOUSE_X_POS <= 220) begin
+          if(MOUSE_Y_POS <=  90) begin
+              next_cursor_address = 6'b000_001;
+          end
+          else if (MOUSE_Y_POS <= 140) begin
+              next_cursor_address = 6'b001_001;
+          end
+          else if (MOUSE_Y_POS <= 190) begin
+              next_cursor_address = 6'b010_001;
+          end
+          else if (MOUSE_Y_POS <= 240) begin
+              next_cursor_address = 6'b011_001;
+          end
+          else if (MOUSE_Y_POS <= 290) begin
+              next_cursor_address = 6'b100_001;
+          end
+          else if (MOUSE_Y_POS <= 340) begin
+              next_cursor_address = 6'b101_001;
+          end
+          else if (MOUSE_Y_POS <= 390) begin
+              next_cursor_address = 6'b110_001;
+          end
+          else begin
+              next_cursor_address = 6'b111_001;
+          end
+      end
+      else if (MOUSE_X_POS <= 270) begin
+          if(MOUSE_Y_POS <=  90) begin
+              next_cursor_address = 6'b000_010;
+          end
+          else if (MOUSE_Y_POS <= 140) begin
+              next_cursor_address = 6'b001_010;
+          end
+          else if (MOUSE_Y_POS <= 190) begin
+              next_cursor_address = 6'b010_010;
+          end
+          else if (MOUSE_Y_POS <= 240) begin
+              next_cursor_address = 6'b011_010;
+          end
+          else if (MOUSE_Y_POS <= 290) begin
+              next_cursor_address = 6'b100_010;
+          end
+          else if (MOUSE_Y_POS <= 340) begin
+              next_cursor_address = 6'b101_010;
+          end
+          else if (MOUSE_Y_POS <= 390) begin
+              next_cursor_address = 6'b110_010;
+          end
+          else begin
+              next_cursor_address = 6'b111_010;
+          end
+      end
+      else if (MOUSE_X_POS <= 320) begin
+          if (MOUSE_Y_POS <=  90) begin
+              next_cursor_address = 6'b000_011;
+          end
+          else if (MOUSE_Y_POS <= 140) begin
+              next_cursor_address = 6'b001_011;
+          end
+          else if (MOUSE_Y_POS <= 190) begin
+              next_cursor_address = 6'b010_011;
+          end
+          else if (MOUSE_Y_POS <= 240) begin
+              next_cursor_address = 6'b011_011;
+          end
+          else if (MOUSE_Y_POS <= 290) begin
+              next_cursor_address = 6'b100_011;
+          end
+          else if (MOUSE_Y_POS <= 340) begin
+              next_cursor_address = 6'b101_011;
+          end
+          else if (MOUSE_Y_POS <= 390) begin
+              next_cursor_address = 6'b110_011;
+          end
+          else begin
+              next_cursor_address = 6'b111_011;
+          end
+      end
+      else if (MOUSE_X_POS <= 370) begin
+          if(MOUSE_Y_POS <=  90) begin
+              next_cursor_address = 6'b000_100;
+          end
+          else if (MOUSE_Y_POS <= 140) begin
+              next_cursor_address = 6'b001_100;
+          end
+          else if (MOUSE_Y_POS <= 190) begin
+              next_cursor_address = 6'b010_100;
+          end
+          else if (MOUSE_Y_POS <= 240) begin
+              next_cursor_address = 6'b011_100;
+          end
+          else if (MOUSE_Y_POS <= 290) begin
+              next_cursor_address = 6'b100_100;
+          end
+          else if (MOUSE_Y_POS <= 340) begin
+              next_cursor_address = 6'b101_100;
+          end
+          else if (MOUSE_Y_POS <= 390) begin
+              next_cursor_address = 6'b110_100;
+          end
+          else begin
+              next_cursor_address = 6'b111_100;
+          end
+      end
+      else if (MOUSE_X_POS <= 420) begin
+          if(MOUSE_Y_POS <=  90) begin
+              next_cursor_address = 6'b000_101;
+          end
+          else if (MOUSE_Y_POS <= 140) begin
+              next_cursor_address = 6'b001_101;
+          end
+          else if (MOUSE_Y_POS <= 190) begin
+              next_cursor_address = 6'b010_101;
+          end
+          else if (MOUSE_Y_POS <= 240) begin
+              next_cursor_address = 6'b011_101;
+          end
+          else if (MOUSE_Y_POS <= 290) begin
+              next_cursor_address = 6'b100_101;
+          end
+          else if (MOUSE_Y_POS <= 340) begin
+              next_cursor_address = 6'b101_101;
+          end
+          else if (MOUSE_Y_POS <= 390) begin
+              next_cursor_address = 6'b110_101;
+          end
+          else begin
+              next_cursor_address = 6'b111_101;
+          end
+      end
+      else if (MOUSE_X_POS <= 470) begin
+          if (MOUSE_Y_POS <=  90) begin
+              next_cursor_address = 6'b000_110;
+          end
+          else if (MOUSE_Y_POS <= 140) begin
+              next_cursor_address = 6'b001_110;
+          end
+          else if (MOUSE_Y_POS <= 190) begin
+              next_cursor_address = 6'b010_110;
+          end
+          else if (MOUSE_Y_POS <= 240) begin
+              next_cursor_address = 6'b011_110;
+          end
+          else if (MOUSE_Y_POS <= 290) begin
+              next_cursor_address = 6'b100_110;
+          end
+          else if (MOUSE_Y_POS <= 340) begin
+              next_cursor_address = 6'b101_110;
+          end
+          else if (MOUSE_Y_POS <= 390) begin
+              next_cursor_address = 6'b110_110;
+          end
+          else begin
+              next_cursor_address = 6'b111_110;
+          end
+      end
+      else begin
+          if(MOUSE_Y_POS <=  90) begin
+              next_cursor_address = 6'b000_111;
+          end
+          else if (MOUSE_Y_POS <= 140) begin
+              next_cursor_address = 6'b001_111;
+          end
+          else if (MOUSE_Y_POS <= 190) begin
+              next_cursor_address = 6'b010_111;
+          end
+          else if (MOUSE_Y_POS <= 240) begin
+              next_cursor_address = 6'b011_111;
+          end
+          else if (MOUSE_Y_POS <= 290) begin
+              next_cursor_address = 6'b100_111;
+          end
+          else if (MOUSE_Y_POS <= 340) begin
+              next_cursor_address = 6'b101_111;
+          end
+          else if (MOUSE_Y_POS <= 390) begin
+              next_cursor_address = 6'b110_111;
+          end
+          else begin
+              next_cursor_address = 6'b111_111;
+          end
+       end
+    end
 
+
+    always @(*)begin
         case (game_state)
             STANDBY: begin
-                if (center_button && cursor_contents[3] == player_state && cursor_contents[2:0] != EMPTY) begin
+                if (MOUSE_LEFT && cursor_contents[3] == player_state && cursor_contents[2:0] != EMPTY) begin
                     next_game_state = SELECTED;
                     next_selected_address = cursor_address;
                 end
@@ -115,13 +316,13 @@ module GameLogic(
                 next_player_state = player_state;
             end
             SELECTED: begin
-                if(center_button && cursor_address == selected_address)begin
+                if((MOUSE_LEFT && cursor_address == selected_address) || MOUSE_RIGHT)begin
                     next_game_state = STANDBY;
                     next_board_out_address = cursor_address;
                     next_board_out_piece = selected_contents;
                     next_board_change_en_wire = 1'b0;
                 end
-                else if(center_button && (cursor_contents[3] != player_state || cursor_contents[2:0] == EMPTY) && is_valid_move) begin
+                else if(MOUSE_LEFT && (cursor_contents[3] != player_state || cursor_contents[2:0] == EMPTY) && is_valid_move) begin
                     next_game_state = MOVE;
                     next_board_out_address = cursor_address;
                     next_board_out_piece = selected_contents;

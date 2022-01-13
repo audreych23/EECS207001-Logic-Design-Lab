@@ -3,16 +3,13 @@
 module Top(
     input clk,
     input rst,
-    input left_button,
-    input right_button,
-    input up_button,
-    input down_button,
-    input center_button,
     output [3:0] vga_red,
     output [3:0] vga_green,
     output [3:0] vga_blue,
     output hsync,
-    output vsync
+    output vsync,
+    inout PS2_CLK,
+    inout PS2_DATA
 );
 
     parameter
@@ -28,14 +25,11 @@ module Top(
     WHITE = 1'b0,
     BLACK = 1'b1;
 
-    wire left_button_db, left_button_op;
-    wire right_button_db, right_button_op;
-    wire up_button_db, up_button_op;
-    wire down_button_db, down_button_op;
-    wire center_button_db, center_button_op;
+    /* buttons */
+    wire MOUSE_LEFT_db, MOUSE_LEFT_op;
+    wire MOUSE_RIGHT_db, MOUSE_RIGHT_op;
 
-    wire VGA_clk;
-
+    /* game logic */
     wire[5:0] board_change_address; // the target address to move the piece
     wire[3:0] board_change_piece; // the piece type to move
 
@@ -50,6 +44,20 @@ module Top(
     reg [3:0] next_board[63:0];
 
     wire [255:0] passable_board;
+
+    /* vga */
+    wire VGA_clk;
+    wire [9:0] h_cnt;
+    wire [9:0] v_cnt;
+    wire valid;
+
+    /* mouse */
+    wire enable_mouse_display;
+    wire [9 : 0] MOUSE_X_POS , MOUSE_Y_POS;
+    wire MOUSE_LEFT , MOUSE_MIDDLE , MOUSE_RIGHT , MOUSE_NEW_EVENT;
+    wire [3 : 0] mouse_cursor_red , mouse_cursor_green , mouse_cursor_blue;
+
+    wire [11:0] mouse_pixel = {mouse_cursor_red, mouse_cursor_green, mouse_cursor_blue};
 
     always @(posedge clk)begin
         if(rst)begin //reset the board
@@ -348,18 +356,12 @@ module Top(
     assign passable_board[255 : 252] = board[63];
 
     Debounce
-    LDB(.clk(clk), .pb(left_button), .pb_db(left_button_db)),
-    RDB(.clk(clk), .pb(right_button), .pb_db(right_button_db)),
-    UDB(.clk(clk), .pb(up_button), .pb_db(up_button_db)),
-    DDB(.clk(clk), .pb(down_button), .pb_db(down_button_db)),
-    CDB(.clk(clk), .pb(center_button), .pb_db(center_button_db));
+    MLDB(.clk(clk), .pb(MOUSE_LEFT), .pb_db(MOUSE_LEFT_db)),
+    MRDB(.clk(clk), .pb(MOUSE_RIGHT), .pb_db(MOUSE_RIGHT_db));
 
     OnePulse
-    LOP(.clk(clk), .pb_db(left_button_db), .pb_op(left_button_op)),
-    ROP(.clk(clk), .pb_db(right_button_db), .pb_op(right_button_op)),
-    UOP(.clk(clk), .pb_db(up_button_db), .pb_op(up_button_op)),
-    DOP(.clk(clk), .pb_db(down_button_db), .pb_op(down_button_op)),
-    COP(.clk(clk), .pb_db(center_button_db), .pb_op(center_button_op));
+    MLOP(.clk(clk), .pb_db(MOUSE_LEFT_db), .pb_op(MOUSE_LEFT_op)),
+    MROP(.clk(clk), .pb_db(MOUSE_RIGHT_db), .pb_op(MOUSE_RIGHT_op));
 
     /* module instantiation */
     ClockDivisor CD(
@@ -367,15 +369,46 @@ module Top(
         .clk1(VGA_clk)
     );
 
-    DisplayInterface DI(
+    Mouse mouse_ctrl_inst(
+        .clk(clk),
+        .h_cntr_reg(h_cnt),
+        .v_cntr_reg(v_cnt),
+        .enable_mouse_display(enable_mouse_display),
+        .MOUSE_X_POS(MOUSE_X_POS),
+        .MOUSE_Y_POS(MOUSE_Y_POS),
+        .MOUSE_LEFT(MOUSE_LEFT),
+        .MOUSE_MIDDLE(MOUSE_MIDDLE),
+        .MOUSE_RIGHT(MOUSE_RIGHT),
+        .MOUSE_NEW_EVENT(MOUSE_NEW_EVENT),
+        .mouse_cursor_red(mouse_cursor_red),
+        .mouse_cursor_green(mouse_cursor_green),
+        .mouse_cursor_blue(mouse_cursor_blue),
+        .PS2_CLK(PS2_CLK),
+        .PS2_DATA(PS2_DATA)
+    );
+
+    VGAController VGA(
         .clk(VGA_clk),
+        .reset(rst),
+        .h_sync(hsync),
+        .v_sync(vsync),
+        .valid(valid),
+        .h_cnt(h_cnt),
+        .v_cnt(v_cnt)
+    );
+
+    DisplayInterface DI(
+        .clk(clk),
         .rst(Reset),
         .passed_board(passable_board),
         .cursor_address(cursor_address),
         .selected_address(selected_piece_address),
         .selected_enable(highlight_selected_square),
-        .hsync(hsync),
-        .vsync(vsync),
+        .h_cnt(h_cnt),
+        .v_cnt(v_cnt),
+        .is_in_display_area(valid),
+        .enable_mouse_display(enable_mouse_display),
+        .mouse_pixel(mouse_pixel),
         .vga_red(vga_red),
         .vga_green(vga_green),
         .vga_blue(vga_blue)
@@ -384,12 +417,11 @@ module Top(
 	GameLogic GL(
         .clk(clk),
         .rst(rst),
-        .left_button(left_button_op),
-        .up_button(up_button_op),
-        .right_button(right_button_op),
-        .down_button(down_button_op),
-        .center_button(center_button_op),
         .passed_board(passable_board),
+        .MOUSE_X_POS(MOUSE_X_POS),
+        .MOUSE_Y_POS(MOUSE_Y_POS),
+        .MOUSE_LEFT(MOUSE_LEFT_op),
+        .MOUSE_RIGHT(MOUSE_RIGHT_op),
         .board_out_address(board_change_address),
         .board_out_piece(board_change_piece),
         .board_change_en_wire(board_change_en_wire),

@@ -7,8 +7,11 @@ module DisplayInterface(
     input [5:0] cursor_address,
     input [5:0] selected_address,
     input selected_enable,
-    output hsync,
-    output vsync,
+    input [9:0] h_cnt,
+    input [9:0] v_cnt,
+    input is_in_display_area,
+    input enable_mouse_display,
+    input [11:0] mouse_pixel,
     output [3:0] vga_red,
     output [3:0] vga_green,
     output [3:0] vga_blue
@@ -58,14 +61,15 @@ module DisplayInterface(
     wire is_in_board;
     wire dark_square;
 
-    wire is_in_display_area;
+    //wire is_in_display_area;
 
     wire [3:0] board[63:0];
 
-    wire [9:0] h_cnt;
-    wire [9:0] v_cnt;
+    //wire [9:0] h_cnt;
+    //wire [9:0] v_cnt;
 
     wire clk_flicker_enable;
+    wire flicker_reset;
 
     always @(h_cnt) begin
         if(h_cnt <= 170) begin
@@ -170,6 +174,9 @@ module DisplayInterface(
 
     always @(*) begin
         if (!is_in_board) next_output_color = RGB_OUTSIDE;
+        else if (enable_mouse_display) begin
+            next_output_color = mouse_pixel;
+        end
         else begin
             if (is_in_square_border) begin
                 if (cursor_address == {counter_row, counter_col}) next_output_color = RGB_CURSOR;
@@ -182,9 +189,9 @@ module DisplayInterface(
                 end
                 else if (dark_square) next_output_color = RGB_DARK_SQUARE;
                 else next_output_color = RGB_LIGHT_SQUARE;
-             end
+            end
 
-             else begin
+            else begin
                 case (board[{counter_row, counter_col}][2:0])
                     EMPTY : begin
                         if (dark_square) next_output_color = RGB_DARK_SQUARE;
@@ -411,20 +418,13 @@ module DisplayInterface(
         output_color[0] & is_in_display_area
     };
 
+    assign flicker_reset = !(selected_enable && (selected_address != cursor_address));
+
     /* module instantiation */
     ClockDivisorSlow clock_div (
+        .reset(flicker_reset),
         .clk(clk),
         .slow_clk(clk_flicker_enable)
-    );
-
-    VGAController VGA(
-        .clk(clk),
-        .reset(rst),
-        .h_sync(hsync),
-        .v_sync(vsync),
-        .valid(is_in_display_area),
-        .h_cnt(h_cnt),
-        .v_cnt(v_cnt)
     );
 
 endmodule
