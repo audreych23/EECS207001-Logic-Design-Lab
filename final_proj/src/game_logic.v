@@ -17,10 +17,11 @@ module GameLogic(
 );
 
     parameter
-    STANDBY = 2'b00, // before the player choose a piece
-    SELECTED = 2'b01, // the piece is selected and choose destination
-    MOVE = 2'b10, // the piece is copied to the destination
-    ERASE = 2'b11; // erase the piece in original address
+    STANDBY = 3'b000, // before the player choose a piece
+    SELECTED = 3'b001, // the piece is selected and choose destination
+    CHECK = 3'b010,
+    MOVE = 3'b011, // the piece is copied to the destination
+    ERASE = 3'b100; // erase the piece in original address
 
     parameter
     EMPTY = 3'b000,
@@ -37,25 +38,28 @@ module GameLogic(
 
     reg next_board_change_en_wire;
 
-    reg[5:0] next_board_out_address;
+    reg [5:0] next_board_out_address;
 
-    reg[3:0] next_board_out_piece;
+    reg [3:0] next_board_out_piece;
 
-    reg[5:0] next_cursor_address;
+    reg [5:0] next_cursor_address;
 
-    reg[5:0] next_selected_address;
+    reg [5:0] next_selected_address;
+
+    reg [5:0] check_address;
+    reg [5:0] next_check_address;
 
     reg player_state ;
     reg next_player_state;
 
-    reg [1:0] game_state;
-    reg [1:0] next_game_state;
+    reg [2:0] game_state;
+    reg [2:0] next_game_state;
 
-    wire[3:0] horizontal_difference;
-    wire[3:0] vertical_difference;
+    wire [3:0] horizontal_difference;
+    wire [3:0] vertical_difference;
 
-    wire[3:0] cursor_contents;
-    wire[3:0] selected_contents;
+    wire [3:0] cursor_contents;
+    wire [3:0] selected_contents;
 
     wire [3:0] board[63:0];
 
@@ -66,12 +70,13 @@ module GameLogic(
             player_state <= WHITE;
             game_state <= STANDBY;
 
-            board_out_address <= 6'b000000;
+            board_out_address <= 6'b000_000;
             board_out_piece <= 4'b0000;
             board_change_en_wire <= 0;
 
-            selected_address <= 6'b000000;
-            cursor_address <= 6'b000000;
+            selected_address <= 6'b000_000;
+            cursor_address <= 6'b000_000;
+            check_address <= 6'b000_000;
         end
         else begin
             player_state <= next_player_state;
@@ -83,6 +88,7 @@ module GameLogic(
 
             selected_address <= next_selected_address;
             cursor_address <= next_cursor_address;
+            check_address <= next_check_address;
         end
     end
 
@@ -301,7 +307,7 @@ module GameLogic(
 
     always @(*)begin
         case (game_state)
-            STANDBY: begin
+            STANDBY : begin
                 if (MOUSE_LEFT && cursor_contents[3] == player_state && cursor_contents[2:0] != EMPTY) begin
                     next_game_state = SELECTED;
                     next_selected_address = cursor_address;
@@ -310,51 +316,306 @@ module GameLogic(
                     next_game_state = game_state;
                     next_selected_address = selected_address;
                 end
+                next_board_change_en_wire = 1'b0;
                 next_board_out_address = board_out_address;
                 next_board_out_piece = board_out_piece;
-                next_board_change_en_wire = 1'b0;
                 next_player_state = player_state;
+                next_check_address = check_address;
             end
-            SELECTED: begin
+            SELECTED : begin
                 if((MOUSE_LEFT && cursor_address == selected_address) || MOUSE_RIGHT)begin
                     next_game_state = STANDBY;
-                    next_board_out_address = cursor_address;
-                    next_board_out_piece = selected_contents;
-                    next_board_change_en_wire = 1'b0;
+                    next_check_address = check_address;
                 end
-                else if(MOUSE_LEFT && (cursor_contents[3] != player_state || cursor_contents[2:0] == EMPTY) && is_valid_move) begin
-                    next_game_state = MOVE;
-                    next_board_out_address = cursor_address;
-                    next_board_out_piece = selected_contents;
-                    next_board_change_en_wire = 1'b1;
+                else if(MOUSE_LEFT && (cursor_contents[3] != player_state || cursor_contents[2:0] == EMPTY) ) begin
+                    next_game_state = CHECK;
+                    next_check_address = cursor_address;
                 end
                 else begin
                     next_game_state = game_state;
-                    next_board_out_address = board_out_address;
-                    next_board_out_piece = board_out_piece;
+                    next_check_address = check_address;
+                end
+                next_board_change_en_wire = 1'b0;
+                next_board_out_address = board_out_address;
+                next_board_out_piece = board_out_piece;
+                next_selected_address = selected_address;
+                next_player_state = player_state;
+            end
+            CHECK : begin
+                if(check_address == selected_address) begin
+                    next_game_state = MOVE;
+                    next_board_out_address = cursor_address;
+                    next_board_out_piece = selected_contents;
                     next_board_change_en_wire = 1'b0;
+                end
+                else begin
+                
+                    if (selected_contents == ROOK) begin
+                        // validity can go left or right
+                        if (is_valid_move) begin
+                            if (check_address[2:0] > selected_address[2:0]) begin
+                                // decrement check_address until selected_address
+                                next_check_address = check_address - 6'b000_001; // decrement to left
+                                if (board[check_address] != EMPTY) begin
+                                    next_game_state = SELECTED;
+                                end
+                                else begin
+                                    next_game_state = CHECK;
+                                end
+                            end
+                            else if (check_address[2:0] < selected_address[2:0]) begin
+                                // increment check_address until selected address
+                                next_check_address = check_address + 6'b000_001;
+                                if (board[check_address] != EMPTY) begin
+                                    next_game_state = SELECTED;
+                                end
+                                else begin
+                                    next_game_state = CHECK;
+                                end
+                            end
+                            else if (check_address[5:3] < selected_address[5:3]) begin
+                                // increment from up to down
+                                next_check_address = check_address + 6'b001_000;
+                                if (board[check_address] != EMPTY) begin
+                                    next_game_state = SELECTED;
+                                end
+                                else begin
+                                    next_game_state = CHECK;
+                                end
+                            end
+                            else if (check_address[5:3] > selected_address[5:3]) begin
+                                // decrement from down to up
+                                next_check_address = check_address - 6'b001_000;
+                                if (board[check_address] != EMPTY) begin
+                                    next_game_state = SELECTED;
+                                end
+                                else begin
+                                    next_game_state = CHECK;
+                                end
+                            end
+                            else begin
+                                // selecting itself? impossible game_state
+                                next_check_address = check_address;
+                                next_game_state = SELECTED;
+                            end
+                        end
+                        else begin
+                            next_check_address = check_address;
+                            next_game_state = SELECTED;
+                        end
+                        next_board_out_address = board_out_address;
+                        next_board_out_piece = board_out_piece;
+                        next_board_change_en_wire = 1'b0;
+                    end
+                    
+                    else if (selected_contents == BISHOP) begin
+                        if (is_valid_move) begin
+                            if (check_address[2:0] > selected_address[2:0] && check_address[5:3] > selected_address[5:3]) begin
+                                // bottom right diagonal
+                                next_check_address = check_address - 6'b001_001; // decrement to left
+                                if (board[check_address] != EMPTY) begin
+                                    next_game_state = SELECTED;
+                                end
+                                else begin
+                                    next_game_state = CHECK;
+                                end
+                            end
+                            else if (check_address[2:0] > selected_address[2:0] && check_address[5:3] < selected_address[5:3]) begin
+                                // top right diagonal
+                                next_check_address[2:0] = check_address[2:0] - 3'b001;
+                                next_check_address[5:3] = check_address[5:3] + 3'b001;
+                                if (board[check_address] != EMPTY) begin
+                                    next_game_state = SELECTED;
+                                end
+                                else begin
+                                    next_game_state = CHECK;
+                                end
+                            end
+                            else if (check_address[2:0] < selected_address[2:0] && check_address[5:3] > selected_address[5:3]) begin
+                                // bottom left diagonal
+                                next_check_address[2:0] = check_address[2:0] + 3'b001;
+                                next_check_address[5:3] = check_address[5:3] - 3'b001;
+                                if (board[check_address] != EMPTY) begin
+                                    next_game_state = SELECTED;
+                                end
+                                else begin
+                                    next_game_state = CHECK;
+                                end
+                            end
+                            else if (check_address[2:0] < selected_address[2:0] && check_address[5:3] < selected_address[5:3]) begin
+                                // top left diagonal
+                                next_check_address = check_address + 6'b001_001;
+                                if (board[check_address] != EMPTY) begin
+                                    next_game_state = SELECTED; // means invalid
+                                end
+                                else begin
+                                    next_game_state = CHECK;
+                                end
+                            end
+
+                            else begin
+                                next_check_address = check_address;
+                                next_game_state = SELECTED;
+                            end
+                        end
+                        else begin
+                            next_check_address = check_address;
+                            next_game_state = SELECTED;
+                        end
+                        next_board_out_address = board_out_address;
+                        next_board_out_piece = board_out_piece;
+                        next_board_change_en_wire = 1'b0;
+                    end
+                    
+                    else if (selected_contents == QUEEN) begin
+                        if (is_valid_move) begin
+                            if (check_address[2:0] > selected_address[2:0]) begin
+                                // decrement check_address until selected_address
+                                next_check_address = check_address - 6'b000_001; // decrement to left
+                                if (board[check_address] != EMPTY) begin
+                                    next_game_state = SELECTED;
+                                end
+                                else begin
+                                    next_game_state = CHECK;
+                                end
+                            end
+                            else if (check_address[2:0] < selected_address[2:0]) begin
+                                // increment check_address until selected address
+                                next_check_address = check_address + 6'b000_001;
+                                if (board[check_address] != EMPTY) begin
+                                    next_game_state = SELECTED;
+                                end
+                                else begin
+                                    next_game_state = CHECK;
+                                end
+                            end
+                            else if (check_address[5:3] < selected_address[5:3]) begin
+                                // increment from up to down
+                                next_check_address = check_address + 6'b001_000;
+                                if (board[check_address] != EMPTY) begin
+                                    next_game_state = SELECTED;
+                                end
+                                else begin
+                                    next_game_state = CHECK;
+                                end
+                            end
+                            else if (check_address[5:3] > selected_address[5:3]) begin
+                                // decrement from down to up
+                                next_check_address = check_address - 6'b001_000;
+                                if (board[check_address] != EMPTY) begin
+                                    next_game_state = SELECTED;
+                                end
+                                else begin
+                                    next_game_state = CHECK;
+                                end
+                            end
+                            else begin
+                                // selecting itself? impossible game_state
+                                next_check_address = check_address;
+                                next_game_state = SELECTED;
+                            end
+                            
+                            if (check_address[2:0] > selected_address[2:0] && check_address[5:3] > selected_address[5:3]) begin
+                                // bottom right diagonal
+                                next_check_address = check_address - 6'b001_001; // decrement to left
+                                if (board[check_address] != EMPTY) begin
+                                    next_game_state = SELECTED;
+                                end
+                                else begin
+                                    next_game_state = CHECK;
+                                end
+                            end
+                            else if (check_address[2:0] > selected_address[2:0] && check_address[5:3] < selected_address[5:3]) begin
+                                // top right diagonal
+                                next_check_address[2:0] = check_address[2:0] - 3'b001;
+                                next_check_address[5:3] = check_address[5:3] + 3'b001;
+                                if (board[check_address] != EMPTY) begin
+                                    next_game_state = SELECTED;
+                                end
+                                else begin
+                                    next_game_state = CHECK;
+                                end
+                            end
+                            else if (check_address[2:0] < selected_address[2:0] && check_address[5:3] > selected_address[5:3]) begin
+                                // bottom left diagonal
+                                next_check_address[2:0] = check_address[2:0] + 3'b001;
+                                next_check_address[5:3] = check_address[5:3] - 3'b001;
+                                if (board[check_address] != EMPTY) begin
+                                    next_game_state = SELECTED;
+                                end
+                                else begin
+                                    next_game_state = CHECK;
+                                end
+                            end
+                            else if (check_address[2:0] < selected_address[2:0] && check_address[5:3] < selected_address[5:3]) begin
+                                // top left diagonal
+                                next_check_address = check_address + 6'b001_001;
+                                if (board[check_address] != EMPTY) begin
+                                    next_game_state = SELECTED; // means invalid
+                                end
+                                else begin
+                                    next_game_state = CHECK;
+                                end
+                            end
+
+                            else begin
+                                next_check_address = check_address;
+                                next_game_state = SELECTED;
+                            end
+                        end
+                        else begin
+                            next_check_address = check_address;
+                            next_game_state = SELECTED;
+                        end
+                        next_board_out_address = board_out_address;
+                        next_board_out_piece = board_out_piece;
+                        next_board_change_en_wire = 1'b0;
+                        
+                    end
+                    
+                    else begin
+                        if (is_valid_move) begin
+                            next_game_state = MOVE;
+                            next_check_address = check_address;
+                            next_board_out_address = cursor_address;
+                            next_board_out_piece = selected_contents;
+                            next_board_change_en_wire = 1'b0;
+                        end
+                        else begin
+                            next_game_state = SELECTED;
+                            next_check_address = check_address;
+                            next_board_out_address = board_out_address;
+                            next_board_out_piece = board_out_piece;
+                            next_board_change_en_wire = 1'b0;
+                        end
+                    end
                 end
                 next_selected_address = selected_address;
                 next_player_state = player_state;
             end
-            MOVE:begin
+            MOVE : begin
                 next_game_state = ERASE;
+                next_board_out_address = cursor_address;
+                next_board_out_piece = selected_contents;
+                next_board_change_en_wire = 1'b1;
+
+
+                next_selected_address = selected_address;
+                next_check_address = check_address;
+                next_player_state = player_state;
+            end
+            ERASE : begin
+                next_game_state = STANDBY;
 
                 next_board_out_address = selected_address;
                 next_board_out_piece = {WHITE, EMPTY};
                 next_board_change_en_wire = 1'b1;
+                // next_board_out_address = 6'bxxxxxx;
+                // next_board_out_piece = 4'bxxxx;
+                // next_board_change_en_wire = 1'b0;
 
                 next_selected_address = selected_address;
-                next_player_state = player_state;
-            end
-            ERASE:begin
-                next_game_state = STANDBY;
-
-                next_board_out_address = 6'bxxxxxx;
-                next_board_out_piece = 4'bxxxx;
-                next_board_change_en_wire = 1'b0;
-
-                next_selected_address = selected_address;
+                next_check_address = check_address;
                 next_player_state = ~player_state;
             end
        endcase
